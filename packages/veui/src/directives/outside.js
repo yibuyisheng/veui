@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { isFunction, uniqueId, remove, every, find, isNumber, isString, keys, assign, noop, isEqual, pick } from 'lodash'
 import { getNodes } from '../utils/context'
 import { contains } from '../utils/dom'
@@ -71,13 +72,56 @@ function generate (el, { includeTargets, handler, trigger, delay }) {
   }
 }
 
-function bindHover (el, { includeTargets, handler, delay }) {
+let currentMousePos = {
+  left: 0,
+  top: 0
+}
+window.addEventListener('mousemove', event => {
+  currentMousePos.top = event.pageY - document.body.scrollTop
+  currentMousePos.left = event.pageX - document.body.scrollLeft
+})
+
+function bindHover (el, { includeTargets, handler, delay }, value) {
   unbindHover(el)
+
+  function isOutside (element, targets) {
+    return !targets.some(target => contains(target, element))
+  }
+
+  function checkLeave (element) {
+    if (!isOutside(element, includeTargets)) {
+      return
+    }
+
+    bindingData.hoverData.state = 'out'
+    bindingData.hoverData.prevEvent = {
+      target: el,
+      relatedTarget: element
+    }
+
+    clearTimeout(bindingData.hoverData.timer)
+    let check = () => {
+      // 超时没移回，就要触发handler了
+      if (bindingData.hoverData.state === 'out') {
+        // 此处用最后一次记录的event对象
+        handler(bindingData.hoverData.prevEvent || { target: element })
+        // 重置状态
+        bindingData.hoverData.state = 'ready'
+      }
+    }
+
+    if (bindingData.delay) {
+      bindingData.hoverData.timer = setTimeout(check, bindingData.delay)
+    } else {
+      check()
+    }
+  }
 
   const bindingData = assign(
     {},
     el[bindingKey] || {},
     {
+      value,
       includeTargets,
       handler,
       delay,
@@ -91,26 +135,7 @@ function bindHover (el, { includeTargets, handler, delay }) {
         bindingData.hoverData.state = 'in'
         bindingData.hoverData.prevEvent = event
       },
-      mouseleaveHandler: event => {
-        if (every(includeTargets, target => !contains(target, event.target))) {
-          return
-        }
-
-        bindingData.hoverData.state = 'out'
-        bindingData.hoverData.prevEvent = event
-
-        clearTimeout(bindingData.hoverData.timer)
-        let check = () => {
-          // 超时没移回，就要触发handler了
-          if (bindingData.hoverData.state === 'out') {
-            // 此处用最后一次记录的event对象
-            handler(bindingData.hoverData.prevEvent)
-            // 重置状态
-            bindingData.hoverData.state = 'ready'
-          }
-        }
-        bindingData.hoverData.timer = bindingData.delay ? setTimeout(check, bindingData.delay) : check()
-      }
+      mouseleaveHandler: event => checkLeave(event.relatedTarget)
     }
   )
 
@@ -118,6 +143,15 @@ function bindHover (el, { includeTargets, handler, delay }) {
   bindHoverEvents(bindingData)
 
   el[bindingKey] = bindingData
+
+  if (el.initialCheckTimer) {
+    clearTimeout(el.initialCheckTimer)
+  }
+  el.initialCheckTimer = setTimeout(() => {
+    let { left, top } = currentMousePos
+    console.log('timer', el, document.elementFromPoint(left, top), includeTargets)
+    checkLeave(document.elementFromPoint(left, top))
+  }, 400)
 }
 
 function bindHoverEvents (bindingData) {
@@ -168,12 +202,12 @@ function refresh (el, { value, arg, modifiers, oldValue }, vnode) {
     }
     handlerBindings.push(el)
   } else if (params.trigger === 'hover') {
-    bindHover(el, params)
+    bindHover(el, params, value)
   }
 }
 
 export default {
   bind: refresh,
-  componentUpdated: refresh,
+  update: refresh,
   unbind: clear
 }

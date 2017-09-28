@@ -37,9 +37,9 @@
                   :ref="`layer-${si}-${bi}-${gi}`"
                   v-outside="{
                     handler: () => { toggleActive(group, false) },
-                    refs: [`group-${si}-${bi}-${gi}`, `shadow-${si}-${bi}-${gi}`],
+                    refs: [`shadow-${si}-${bi}-${gi}`],
                     trigger: 'hover',
-                    delay: 200
+                    delay: 0
                   }">
                   <template v-for="ri in Math.ceil(group.children.length / 3)">
                     <div class="veui-region-picker-unit-row" :key="ri">
@@ -64,9 +64,9 @@
                   :ref="`shadow-${si}-${bi}-${gi}`"
                   v-outside="{
                     handler: () => { toggleActive(group, false) },
-                    refs: [`group-${si}-${bi}-${gi}`, `layer-${si}-${bi}-${gi}`],
+                    refs: [`layer-${si}-${bi}-${gi}`],
                     trigger: 'hover',
-                    delay: 200
+                    delay: 0
                   }">
                   <veui-checkbox :checked="group.selected" :indeterminate="group.indeterminate"
                     :readonly="realReadonly" :disabled="realDisabled"
