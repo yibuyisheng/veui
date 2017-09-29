@@ -1,7 +1,7 @@
 <template>
 <div class="veui-overlay">
   <div class="veui-overlay-box"
-    :class="overlayClass"
+    :class="localOverlayClass"
     :ui="ui"
     ref="box"
     :style="{zIndex}"
@@ -17,7 +17,7 @@ import { assign } from 'lodash'
 import { getNodes } from '../utils/context'
 import overlayManager from '../managers/overlay'
 import config from '../managers/config'
-import { getClassPropDef } from '../utils/helper'
+import { getClassPropDef, normalizeClass } from '../utils/helper'
 
 config.defaults({
   'overlay.baseZIndex': 200
@@ -26,6 +26,7 @@ config.defaults({
 overlayManager.setBaseZIndex(config.get('overlay.baseZIndex'))
 
 const OVERLAY_INSTANCE_KEY = '__veui_overlay_instance_key__'
+const NOT_POSITIONED_CLASS = 'veui-overlay-not-positioned'
 
 export default {
   name: 'veui-overlay',
@@ -54,6 +55,7 @@ export default {
       appendBody: false,
       localOpen: this.open,
       targetNode: null,
+      localOverlayClass: normalizeClass(this.overlayClass),
 
       // 把 id 放 data 上面方便 debug
       overlayNodeId: null
@@ -73,6 +75,26 @@ export default {
     },
     targetNode () {
       this.updateOverlayDOM()
+    },
+    overlayClass (v) {
+      let prevLocalClasses = this.localOverlayClass
+      this.localOverlayClass = normalizeClass(v)
+      this.localOverlayClass[NOT_POSITIONED_CLASS] = prevLocalClasses[NOT_POSITIONED_CLASS]
+    },
+    isAttachModeOpened (v) {
+      if (v) {
+        this.$set(this.localOverlayClass, NOT_POSITIONED_CLASS, true)
+      }
+    }
+  },
+  computed: {
+    isAttachModeOpened () {
+      return this.localOpen && this.targetNode
+    }
+  },
+  created () {
+    if (this.isAttachModeOpened) {
+      this.$set(this.localOverlayClass, NOT_POSITIONED_CLASS, true)
     }
   },
   mounted () {
@@ -131,6 +153,7 @@ export default {
         // 所以保险起见，统一 nextTick 触发一下 tether 的重新计算
         this.$nextTick(() => {
           this.tether.position()
+          this.$set(this.localOverlayClass, NOT_POSITIONED_CLASS, false)
         })
       }
 
